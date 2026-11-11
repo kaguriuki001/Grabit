@@ -4,8 +4,21 @@ import yt_dlp, tempfile, os
 
 app = FastAPI()
 
-YDL_OPTS = {"quiet": True, "noplaylist": True, "no_warnings": True,
-            "socket_timeout": 15}
+YDL_OPTS = {
+    "quiet": True,
+    "noplaylist": True,
+    "no_warnings": True,
+    "socket_timeout": 30,
+    "extractor_args": {
+        "youtube": {
+            "player_client": ["tv", "web_embedded", "web"],
+            "player_skip": ["webpage"]
+        },
+        "youtubepot-bgutilhttp": {
+            "base_url": [os.environ.get("YT_DLP_POT_PROVIDER_URL", "http://127.0.0.1:4416")]
+        }
+    }
+}
 
 _cache = {}
 
@@ -17,14 +30,6 @@ def home():
 def health():
     return {"ok": True}
 
-@app.get("/debug")
-def debug(url: str):
-    with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
-        d = ydl.extract_info(url, download=False)
-    return [{"id": f["format_id"], "h": f.get("height"),
-             "v": f.get("vcodec"), "a": f.get("acodec"),
-             "ext": f.get("ext")} for f in d["formats"]]
-
 @app.get("/info")
 def info(url: str):
     if url in _cache:
@@ -34,7 +39,6 @@ def info(url: str):
             d = ydl.extract_info(url, download=False)
 
         fmts = [{"id": "best", "label": "⭐ Best quality (auto)"}]
-
         by_h = {}
         for f in d.get("formats", []):
             v = f.get("vcodec") or "none"
